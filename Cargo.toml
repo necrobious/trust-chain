@@ -1,0 +1,9 @@
+[package]
+name = "trust-chain"
+version = "0.1.0"
+authors = ["Kirk Peterson <necrobious@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+sodiumoxide = "0.2"
+nom = "4.2"
