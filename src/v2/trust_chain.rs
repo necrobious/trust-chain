@@ -129,7 +129,6 @@ impl TrustChain {
     }
 
 
-    // extends the trust chain with another link at the end of the given chain.
     pub fn append(self, new_end_key: PublicKey, new_end_sig:Signature) -> Result<TrustChain, TrustError> {
         match self {
             TrustChain::RootOnlyChain{
@@ -163,7 +162,7 @@ impl TrustChain {
                 } else {
                     Ok(TrustChain::ThreeLinkChain {
                         root_key: root_key,
-                        intermediate_key: end_key, // prev end key becomes interm key
+                        intermediate_key: end_key,
                         end_key: new_end_key,
                         root_sig_over_intermediate_key: root_sig_over_end_key,
                         intermediate_sig_over_end_key: new_end_sig,
@@ -230,14 +229,13 @@ impl TrustChain {
         }
     }
 
-    // retrieve the last key in the trust chain
     pub fn end_key(&self) -> PublicKey {
         match self {
-            TrustChain::RootOnlyChain{root_key:key,..} => key.clone(),
-            TrustChain::TwoLinkChain{end_key:key,..} => key.clone(),
-            TrustChain::ThreeLinkChain{end_key:key,..} => key.clone(),
-            TrustChain::FourLinkChain{end_key:key,..} => key.clone(),
-            TrustChain::FiveLinkChain{end_key:key,..} => key.clone(),
+            TrustChain::RootOnlyChain{root_key:key, ..} => key.clone(),
+            TrustChain::TwoLinkChain{end_key:key,   ..} => key.clone(),
+            TrustChain::ThreeLinkChain{end_key:key, ..} => key.clone(),
+            TrustChain::FourLinkChain{end_key:key,  ..} => key.clone(),
+            TrustChain::FiveLinkChain{end_key:key,  ..} => key.clone(),
         }
     }
 
