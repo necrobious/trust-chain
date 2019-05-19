@@ -1,9 +1,7 @@
-use sodiumoxide::crypto::sign::ed25519::{self, PublicKey,Signature};
-use nom::{Context,be_u8,be_u16,be_i16,be_u24,be_i24,be_u32,be_f64,IResult,Err,Needed,ErrorKind};
-use std::str::from_utf8;
+use sodiumoxide::crypto::sign::ed25519::{self,PublicKey,Signature};
+use nom::{be_u8,be_u16};
 use super::error::TrustError;
 use super::trust_chain::{RootKeysStore,TrustChain,PUBLICKEYBYTES,SIGNATUREBYTES,MAXCHAINLINKS};
-
 
 named!(pub signature<Signature>, do_parse!(
     bytes: take!(SIGNATUREBYTES) >>
@@ -65,8 +63,8 @@ fn chain_for (
 }
 
 named_args!(pub trust_chain(root_keys:Box<RootKeysStore>)<TrustChain>, do_parse!(
-    tag: tag!("TC") >>
-    ver: verify!(be_u16, |ver:u16| ver == 2) >>
+    _tag: tag!("TC") >>
+    _ver: verify!(be_u16, |ver:u16| ver == 2) >>
     root: public_key >>
     chain_length: verify!(be_u8, |len:u8| len < MAXCHAINLINKS as u8) >>
     links: count!(tuple!(public_key,signature), chain_length as usize) >>
@@ -341,7 +339,7 @@ fn five_link_chain_end_to_end_test () {
 
 #[test]
 fn pkey_should_parse () {
-    let (pkey, skey) = ed25519::gen_keypair();
+    let (pkey, _skey) = ed25519::gen_keypair();
     let res = public_key(&pkey.0);
     assert!(res.is_ok());
     assert_eq!(res.unwrap().1,pkey);

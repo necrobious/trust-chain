@@ -20,6 +20,7 @@ impl RootKeysStore for Vec<PublicKey> {
     }
 }
 
+#[derive(Clone)]
 pub enum TrustChain {
     RootOnlyChain {
         root_key:PublicKey
@@ -70,9 +71,7 @@ impl TrustChain {
         if !root_key_store.contains_root_key(&root_key.0) {
             return Err(TrustError::NoRootKeyTrust)
         }
-        let chain =
-            TrustChain::RootOnlyChain {root_key: root_key};
-        Ok(chain)
+        Ok(TrustChain::RootOnlyChain {root_key: root_key})
     }
 
     pub fn two_link_chain(
@@ -80,25 +79,8 @@ impl TrustChain {
         end_key: PublicKey,
         root_sig_over_end_key: Signature,
         root_key_store:Box<RootKeysStore>) -> Result<TrustChain,TrustError> {
-
-        if !root_key_store.contains_root_key(&root_key.0) {
-            return Err(TrustError::NoRootKeyTrust)
-        }
-
-        if !ed25519::verify_detached(
-            &root_sig_over_end_key,
-            &end_key.0,
-            &root_key) {
-            return Err(TrustError::InvalidSignature)
-        }
-
-        let chain =
-            TrustChain::TwoLinkChain {
-                root_key: root_key,
-                end_key: end_key,
-                root_sig_over_end_key:root_sig_over_end_key
-            };
-        Ok(chain)
+        TrustChain::root_only_chain(root_key.clone(), root_key_store)
+            .and_then(|chain| chain.append(end_key, root_sig_over_end_key))
     }
 
     pub fn three_link_chain(
@@ -108,35 +90,9 @@ impl TrustChain {
         root_sig_over_intermediate_key: Signature,
         intermediate_sig_over_end_key: Signature,
         root_key_store:Box<RootKeysStore>) -> Result<TrustChain,TrustError> {
-
-        if !root_key_store.contains_root_key(&root_key.0) {
-            return Err(TrustError::NoRootKeyTrust)
-        }
-
-        if !ed25519::verify_detached(
-            &root_sig_over_intermediate_key,
-            &intermediate_key.0,
-            &root_key) {
-            return Err(TrustError::InvalidSignature)
-        }
-
-        if !ed25519::verify_detached(
-            &intermediate_sig_over_end_key,
-            &end_key.0,
-            &intermediate_key) {
-            return Err(TrustError::InvalidSignature)
-        }
-
-        let chain =
-            TrustChain::ThreeLinkChain {
-                root_key: root_key,
-                intermediate_key: intermediate_key,
-                end_key: end_key,
-                root_sig_over_intermediate_key:root_sig_over_intermediate_key,
-                intermediate_sig_over_end_key:intermediate_sig_over_end_key,
-            };
-
-        Ok(chain)
+        TrustChain::root_only_chain(root_key.clone(), root_key_store)
+            .and_then(|chain| chain.append(intermediate_key, root_sig_over_intermediate_key))
+            .and_then(|chain| chain.append(end_key, intermediate_sig_over_end_key))
     }
 
     pub fn four_link_chain(
@@ -148,44 +104,10 @@ impl TrustChain {
         intermediate1_sig_over_intermediate2_key: Signature,
         intermediate2_sig_over_end_key: Signature,
         root_key_store:Box<RootKeysStore>) -> Result<TrustChain,TrustError> {
-
-        if !root_key_store.contains_root_key(&root_key.0) {
-            return Err(TrustError::NoRootKeyTrust)
-        }
-
-        if !ed25519::verify_detached(
-            &root_sig_over_intermediate1_key,
-            &intermediate1_key.0,
-            &root_key) {
-            return Err(TrustError::InvalidSignature)
-        }
-
-        if !ed25519::verify_detached(
-            &intermediate1_sig_over_intermediate2_key,
-            &intermediate2_key.0,
-            &intermediate1_key) {
-            return Err(TrustError::InvalidSignature)
-        }
-
-        if !ed25519::verify_detached(
-            &intermediate2_sig_over_end_key,
-            &end_key.0,
-            &intermediate2_key) {
-            return Err(TrustError::InvalidSignature)
-        }
-
-        let chain =
-            TrustChain::FourLinkChain {
-                root_key: root_key,
-                intermediate1_key: intermediate1_key,
-                intermediate2_key: intermediate2_key,
-                end_key: end_key,
-                root_sig_over_intermediate1_key: root_sig_over_intermediate1_key,
-                intermediate1_sig_over_intermediate2_key: intermediate1_sig_over_intermediate2_key,
-                intermediate2_sig_over_end_key: intermediate2_sig_over_end_key,
-            };
-
-        Ok(chain)
+        TrustChain::root_only_chain(root_key.clone(), root_key_store)
+            .and_then(|chain| chain.append(intermediate1_key, root_sig_over_intermediate1_key))
+            .and_then(|chain| chain.append(intermediate2_key, intermediate1_sig_over_intermediate2_key))
+            .and_then(|chain| chain.append(end_key, intermediate2_sig_over_end_key))
     }
 
     pub fn five_link_chain(
@@ -199,64 +121,128 @@ impl TrustChain {
         intermediate2_sig_over_intermediate3_key: Signature,
         intermediate3_sig_over_end_key: Signature,
         root_key_store:Box<RootKeysStore>) -> Result<TrustChain,TrustError> {
+        TrustChain::root_only_chain(root_key.clone(), root_key_store)
+            .and_then(|chain| chain.append(intermediate1_key, root_sig_over_intermediate1_key))
+            .and_then(|chain| chain.append(intermediate2_key, intermediate1_sig_over_intermediate2_key))
+            .and_then(|chain| chain.append(intermediate3_key, intermediate2_sig_over_intermediate3_key))
+            .and_then(|chain| chain.append(end_key, intermediate3_sig_over_end_key))
+    }
 
-        if !root_key_store.contains_root_key(&root_key.0) {
-            return Err(TrustError::NoRootKeyTrust)
+
+    // extends the trust chain with another link at the end of the given chain.
+    pub fn append(self, new_end_key: PublicKey, new_end_sig:Signature) -> Result<TrustChain, TrustError> {
+        match self {
+            TrustChain::RootOnlyChain{
+                root_key,
+            } => {
+                if !ed25519::verify_detached(
+                    &new_end_sig,
+                    &new_end_key.0,
+                    &root_key
+                ) {
+                    Err(TrustError::InvalidSignature)
+                } else {
+                    Ok(TrustChain::TwoLinkChain {
+                        root_key: root_key,
+                        end_key: new_end_key,
+                        root_sig_over_end_key:new_end_sig,
+                    })
+                }
+            },
+            TrustChain::TwoLinkChain{
+                root_key,
+                end_key,
+                root_sig_over_end_key,
+            } => {
+                if !ed25519::verify_detached(
+                    &new_end_sig,
+                    &new_end_key.0,
+                    &end_key
+                ) {
+                    Err(TrustError::InvalidSignature)
+                } else {
+                    Ok(TrustChain::ThreeLinkChain {
+                        root_key: root_key,
+                        intermediate_key: end_key, // prev end key becomes interm key
+                        end_key: new_end_key,
+                        root_sig_over_intermediate_key: root_sig_over_end_key,
+                        intermediate_sig_over_end_key: new_end_sig,
+                    })
+                }
+            },
+            TrustChain::ThreeLinkChain{
+                root_key,
+                intermediate_key,
+                end_key,
+                root_sig_over_intermediate_key,
+                intermediate_sig_over_end_key,
+            } => {
+                if !ed25519::verify_detached(
+                    &new_end_sig,
+                    &new_end_key.0,
+                    &end_key
+                ) {
+                    Err(TrustError::InvalidSignature)
+                } else {
+                    Ok(TrustChain::FourLinkChain {
+                        root_key: root_key,
+                        intermediate1_key: intermediate_key,
+                        intermediate2_key: end_key,
+                        end_key: new_end_key,
+                        root_sig_over_intermediate1_key: root_sig_over_intermediate_key,
+                        intermediate1_sig_over_intermediate2_key: intermediate_sig_over_end_key,
+                        intermediate2_sig_over_end_key: new_end_sig,
+                    })
+                }
+            },
+            TrustChain::FourLinkChain{
+                root_key,
+                intermediate1_key,
+                intermediate2_key,
+                end_key,
+                root_sig_over_intermediate1_key,
+                intermediate1_sig_over_intermediate2_key,
+                intermediate2_sig_over_end_key,
+            } => {
+                if !ed25519::verify_detached(
+                    &new_end_sig,
+                    &new_end_key.0,
+                    &end_key
+                ) {
+                    Err(TrustError::InvalidSignature)
+                } else {
+                    Ok(TrustChain::FiveLinkChain {
+                        root_key: root_key,
+                        intermediate1_key: intermediate1_key,
+                        intermediate2_key: intermediate2_key,
+                        intermediate3_key: end_key,
+                        end_key: new_end_key,
+                        root_sig_over_intermediate1_key: root_sig_over_intermediate1_key,
+                        intermediate1_sig_over_intermediate2_key: intermediate1_sig_over_intermediate2_key,
+                        intermediate2_sig_over_intermediate3_key: intermediate2_sig_over_end_key,
+                        intermediate3_sig_over_end_key: new_end_sig,
+                    })
+                }
+            },
+            TrustChain::FiveLinkChain{..} => {
+                Err(TrustError::MaxChainLengthExceeded)
+            }
         }
+    }
 
-        if !ed25519::verify_detached(
-            &root_sig_over_intermediate1_key,
-            &intermediate1_key.0,
-            &root_key) {
-            return Err(TrustError::InvalidSignature)
+    // retrieve the last key in the trust chain
+    pub fn end_key(&self) -> PublicKey {
+        match self {
+            TrustChain::RootOnlyChain{root_key:key,..} => key.clone(),
+            TrustChain::TwoLinkChain{end_key:key,..} => key.clone(),
+            TrustChain::ThreeLinkChain{end_key:key,..} => key.clone(),
+            TrustChain::FourLinkChain{end_key:key,..} => key.clone(),
+            TrustChain::FiveLinkChain{end_key:key,..} => key.clone(),
         }
-
-        if !ed25519::verify_detached(
-            &intermediate1_sig_over_intermediate2_key,
-            &intermediate2_key.0,
-            &intermediate1_key) {
-            return Err(TrustError::InvalidSignature)
-        }
-
-        if !ed25519::verify_detached(
-            &intermediate2_sig_over_intermediate3_key,
-            &intermediate3_key.0,
-            &intermediate2_key) {
-            return Err(TrustError::InvalidSignature)
-        }
-
-        if !ed25519::verify_detached(
-            &intermediate3_sig_over_end_key,
-            &end_key.0,
-            &intermediate3_key) {
-            return Err(TrustError::InvalidSignature)
-        }
-
-        let chain =
-            TrustChain::FiveLinkChain {
-                root_key: root_key,
-                intermediate1_key: intermediate1_key,
-                intermediate2_key: intermediate2_key,
-                intermediate3_key: intermediate3_key,
-                end_key: end_key,
-                root_sig_over_intermediate1_key: root_sig_over_intermediate1_key,
-                intermediate1_sig_over_intermediate2_key: intermediate1_sig_over_intermediate2_key,
-                intermediate2_sig_over_intermediate3_key: intermediate2_sig_over_intermediate3_key,
-                intermediate3_sig_over_end_key: intermediate3_sig_over_end_key,
-            };
-
-        Ok(chain)
     }
 
     pub fn verify_data (&self, untrusted_signature: &Signature, untrusted_data: &[u8]) -> Result<(),TrustError> {
-        let last = match self {
-            TrustChain::RootOnlyChain{root_key:key,..} => key,
-            TrustChain::TwoLinkChain{end_key:key,..} => key,
-            TrustChain::ThreeLinkChain{end_key:key,..} => key,
-            TrustChain::FourLinkChain{end_key:key,..} => key,
-            TrustChain::FiveLinkChain{end_key:key,..} => key,
-        };
-        if !ed25519::verify_detached(untrusted_signature, untrusted_data, &last) {
+        if !ed25519::verify_detached(untrusted_signature, untrusted_data, &self.end_key()) {
             return Err(TrustError::InvalidSignature)
         }
         Ok(())
@@ -353,8 +339,8 @@ impl TrustChain {
 
         }
     }
-
 }
+
 
 #[test]
 fn root_only_chain_construction () {
