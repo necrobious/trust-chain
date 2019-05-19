@@ -1,4 +1,4 @@
-mod error;
-mod trust_chain;
-mod parsers;
+pub mod error;
+pub mod trust_chain;
+pub mod parsers;
 

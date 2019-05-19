@@ -79,7 +79,7 @@ impl TrustChain {
         end_key: PublicKey,
         root_sig_over_end_key: Signature,
         root_key_store:Box<RootKeysStore>) -> Result<TrustChain,TrustError> {
-        TrustChain::root_only_chain(root_key.clone(), root_key_store)
+        TrustChain::root_only_chain(root_key, root_key_store)
             .and_then(|chain| chain.append(end_key, root_sig_over_end_key))
     }
 
@@ -90,7 +90,7 @@ impl TrustChain {
         root_sig_over_intermediate_key: Signature,
         intermediate_sig_over_end_key: Signature,
         root_key_store:Box<RootKeysStore>) -> Result<TrustChain,TrustError> {
-        TrustChain::root_only_chain(root_key.clone(), root_key_store)
+        TrustChain::root_only_chain(root_key, root_key_store)
             .and_then(|chain| chain.append(intermediate_key, root_sig_over_intermediate_key))
             .and_then(|chain| chain.append(end_key, intermediate_sig_over_end_key))
     }
@@ -104,7 +104,7 @@ impl TrustChain {
         intermediate1_sig_over_intermediate2_key: Signature,
         intermediate2_sig_over_end_key: Signature,
         root_key_store:Box<RootKeysStore>) -> Result<TrustChain,TrustError> {
-        TrustChain::root_only_chain(root_key.clone(), root_key_store)
+        TrustChain::root_only_chain(root_key, root_key_store)
             .and_then(|chain| chain.append(intermediate1_key, root_sig_over_intermediate1_key))
             .and_then(|chain| chain.append(intermediate2_key, intermediate1_sig_over_intermediate2_key))
             .and_then(|chain| chain.append(end_key, intermediate2_sig_over_end_key))
@@ -121,7 +121,7 @@ impl TrustChain {
         intermediate2_sig_over_intermediate3_key: Signature,
         intermediate3_sig_over_end_key: Signature,
         root_key_store:Box<RootKeysStore>) -> Result<TrustChain,TrustError> {
-        TrustChain::root_only_chain(root_key.clone(), root_key_store)
+        TrustChain::root_only_chain(root_key, root_key_store)
             .and_then(|chain| chain.append(intermediate1_key, root_sig_over_intermediate1_key))
             .and_then(|chain| chain.append(intermediate2_key, intermediate1_sig_over_intermediate2_key))
             .and_then(|chain| chain.append(intermediate3_key, intermediate2_sig_over_intermediate3_key))
