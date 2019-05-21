@@ -3,14 +3,14 @@ use nom::{be_u8,be_u16};
 use super::error::TrustError;
 use super::trust_chain::{RootKeysStore,TrustChain,PUBLICKEYBYTES,SIGNATUREBYTES,MAXCHAINLINKS};
 
-named!(pub signature<Signature>, do_parse!(
+named!(signature<Signature>, do_parse!(
     bytes: take!(SIGNATUREBYTES) >>
     sig: expr_opt!(Signature::from_slice(bytes)) >>
     (sig)
 ));
 
 
-named!(pub public_key<PublicKey>, do_parse!(
+named!(public_key<PublicKey>, do_parse!(
     bytes: take!(PUBLICKEYBYTES) >>
     key: expr_opt!(PublicKey::from_slice(bytes)) >>
     (key)

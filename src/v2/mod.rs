@@ -1,4 +1,8 @@
-pub mod error;
-pub mod trust_chain;
-pub mod parsers;
+mod error;
+mod trust_chain;
+mod parsers;
+
+pub use error::*;
+pub use trust_chain::*;
+pub use parsers::*;
 
