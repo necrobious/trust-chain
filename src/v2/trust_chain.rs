@@ -20,7 +20,7 @@ impl RootKeysStore for Vec<PublicKey> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub enum TrustChain {
     RootOnlyChain {
         root_key:PublicKey
