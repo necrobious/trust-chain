@@ -62,7 +62,7 @@ pub enum TrustChain {
 
 impl fmt::Display for TrustChain {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({:x?}, )", self.as_bytes(), )
+        write!(f, "({:02x?}, )", self.as_bytes(), )
     }
 }
 
