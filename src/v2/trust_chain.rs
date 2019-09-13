@@ -229,6 +229,17 @@ impl TrustChain {
         }
     }
 
+    pub fn root_key(&self) -> PublicKey {
+        match self {
+            TrustChain::RootOnlyChain{root_key:key, ..} => key.clone(),
+            TrustChain::TwoLinkChain{root_key:key,   ..} => key.clone(),
+            TrustChain::ThreeLinkChain{root_key:key, ..} => key.clone(),
+            TrustChain::FourLinkChain{root_key:key,  ..} => key.clone(),
+            TrustChain::FiveLinkChain{root_key:key,  ..} => key.clone(),
+        }
+    }
+
+
     pub fn end_key(&self) -> PublicKey {
         match self {
             TrustChain::RootOnlyChain{root_key:key, ..} => key.clone(),
