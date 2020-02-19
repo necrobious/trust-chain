@@ -1,9 +1,18 @@
 [package]
 name = "trustchain"
-version = "0.1.0"
+version = "0.3.0"
 authors = ["Kirk Peterson <necrobious@gmail.com>"]
 edition = "2018"
 
+[features]
+default = ["v3"]
+v3 = ["ring"]
+v2 = ["sodiumoxide","nom"]
+
 [dependencies]
-sodiumoxide = "0.2.4"
-nom = "4.2"
+sodiumoxide = {version = "0.2.4", optional = true}
+nom = {version = "4.2", optional = true}
+ring = {version = "0.16.9", optional = true}
+
+[dev-dependencies]
+chrono = "0.4.10"
