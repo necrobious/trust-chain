@@ -1,6 +1,5 @@
 use crate::v3::key::PublicKey;
 use crate::v3::signature::Signature;
-use crate::v3::expiry::{Expiry,NotBefore,NotAfter};
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub struct Root {
@@ -11,12 +10,11 @@ pub struct Root {
 pub struct Link {
     key: PublicKey,
     sig: Signature,
-    exp: Expiry,
 }
 
 impl Link {
-    pub fn new (key: PublicKey, sig: Signature, exp:Expiry) -> Link {
-        Link {key, sig, exp}
+    pub fn new (key: PublicKey, sig: Signature) -> Link {
+        Link {key, sig}
     }
 }
 
@@ -32,10 +30,6 @@ pub trait Key {
 
 pub trait Signed {
     fn sig (&self) -> Signature;
-}
-
-pub trait Expire {
-    fn exp (&self) -> Expiry;
 }
 
 pub trait TrustLink {
@@ -54,10 +48,6 @@ impl Key for Link {
 
 impl Signed for Link {
     fn sig (&self) -> Signature {self.sig}
-}
-
-impl Expire for Link {
-    fn exp (&self) -> Expiry {self.exp}
 }
 
 impl TrustLink for Root {

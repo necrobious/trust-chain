@@ -2,26 +2,25 @@ use ring::signature;
 use crate::v3::TC_V3_HEADER;
 use crate::v3::error::TrustError;
 use crate::v3::signature::Signature;
-use crate::v3::link::{Root, Link, TrustLink, Signed, Expire};
+use crate::v3::link::{Root, Link, TrustLink, Signed};
 use crate::v3::keystore::RootKeysStore;
-use crate::v3::expiry::{Expiry,NotBefore,NotAfter};
 use core::convert::AsRef;
 use core::fmt;
 use std::convert::TryInto;
 
 #[macro_export]
 macro_rules! verify_signature_v3 {
-    ($key:expr, $sig:expr, $expiry:expr, $data:expr) => {
+    ($key:expr, $sig:expr, $data:expr) => {
         signature::UnparsedPublicKey::new(&signature::ED25519, $key)
-            .verify(&[$data, &$expiry.as_bytes()].concat(), $sig)
+            .verify(&[$data].concat(), $sig)
             .map_err(|_| TrustError::InvalidSignature)
     };
 }
 
 #[macro_export]
 macro_rules! sign_v3 {
-    ($keypair:expr, $expiry:expr, $data:expr) => {
-        Signature::from_slice($keypair.sign(&[$data, &$expiry.as_bytes()].concat()).as_ref());
+    ($keypair:expr, $data:expr) => {
+        Signature::from_slice($keypair.sign(&[$data].concat()).as_ref());
     };
 }
 
@@ -128,7 +127,7 @@ impl TrustChain {
     pub fn append (self, l:Link) -> Result<TrustChain, TrustError> {
         use TrustChain::*;
 
-        verify_signature_v3!(self.last().key(),l.sig().as_ref(),l.exp(),l.key().as_ref())?;
+        verify_signature_v3!(self.last().key(),l.sig().as_ref(),l.key().as_ref())?;
 
         match self {
             TC01(r)         => Ok(TC02(r,l)),
@@ -139,8 +138,8 @@ impl TrustChain {
         }
     }
 
-    pub fn verify_data (&self, untrusted_signature: &Signature, untrusted_expiry: &Expiry, untrusted_data: &[u8]) -> Result<(),TrustError> {
-        verify_signature_v3!(self.last().key(),untrusted_signature.as_ref(),untrusted_expiry, untrusted_data)
+    pub fn verify_data (&self, untrusted_signature: &Signature, untrusted_data: &[u8]) -> Result<(),TrustError> {
+        verify_signature_v3!(self.last().key(),untrusted_signature.as_ref(), untrusted_data)
     }
 
     pub fn as_bytes (&self) -> Vec<u8> {
@@ -207,13 +206,10 @@ mod tests {
     use crate::v3::PUBLICKEYBYTES;
     use crate::v3::key::PublicKey;
     use crate::v3::link::{Root, Link};
-    use crate::v3::date::{Date as CrateDate, Year, Month, Day, DateError};
     use ring::rand::{SystemRandom, SecureRandom};
     use ring::signature;
     use ring::signature::KeyPair;
     use super::*;
-    use chrono::prelude::*;
-    use core::convert::TryFrom;
 
     macro_rules! assert_err {
         ($res:expr) => {{
@@ -236,13 +232,6 @@ mod tests {
     fn gen_keypair(rand: &dyn SecureRandom) -> Option<signature::Ed25519KeyPair> {
         let mut seed = [0u8; PUBLICKEYBYTES];
         rand.fill(&mut seed).ok().and_then(|_| signature::Ed25519KeyPair::from_seed_unchecked(&seed).ok())
-    }
-
-    fn date_from (chrono_date: Date<Local>) -> Result<CrateDate,DateError> {
-        let y = Year::try_from(chrono_date.year());
-        let m = Month::try_from(chrono_date.month());
-        let d = Day::try_from(chrono_date.day());
-        CrateDate::new(y?,m?,d?)
     }
 
     #[test]
@@ -278,15 +267,11 @@ mod tests {
         let root           = root_pkey.unwrap();
         let end            = end_pkey.unwrap();
         let root_key_store = vec!(root);
-        let now            = Local::today();
-        let before         = date_from(now.pred()).unwrap();//date_from(Utc.ymd(2020, 1, 13)).unwrap();
-        let after          = date_from(now.succ()).unwrap();//date_from(Utc.ymd(2020, 1, 14)).unwrap();
-        let expiry         = Expiry::new(NotBefore(before),NotAfter(after)).unwrap();
-        let sig            = sign_v3!(root_keypair, expiry, end.as_ref());
+        let sig            = sign_v3!(root_keypair, end.as_ref());
 
         assert!(sig.is_some());
 
-        let link1          = Link::new(end, sig.unwrap(), expiry);
+        let link1          = Link::new(end, sig.unwrap());
         let chain          = trust_chain_v3!(&root_key_store, Root::new(root), link1);
 
         assert_ok!(chain);
@@ -311,18 +296,14 @@ mod tests {
         let intr           = intr_pkey.unwrap();
         let end            = end_pkey.unwrap();
         let root_key_store = vec!(root);
-        let now            = Local::today();
-        let before         = date_from(now.pred()).unwrap();//date_from(Utc.ymd(2020, 1, 13)).unwrap();
-        let after          = date_from(now.succ()).unwrap();//date_from(Utc.ymd(2020, 1, 14)).unwrap();
-        let expiry         = Expiry::new(NotBefore(before),NotAfter(after)).unwrap();
-        let root_sig       = sign_v3!(root_keypair, expiry, intr.as_ref());
-        let intr_sig       = sign_v3!(intr_keypair, expiry, end.as_ref());
+        let root_sig       = sign_v3!(root_keypair, intr.as_ref());
+        let intr_sig       = sign_v3!(intr_keypair, end.as_ref());
 
         assert!(root_sig.is_some());
         assert!(intr_sig.is_some());
 
-        let link1          = Link::new(intr, root_sig.unwrap(), expiry);
-        let link2          = Link::new(end,  intr_sig.unwrap(), expiry);
+        let link1          = Link::new(intr, root_sig.unwrap());
+        let link2          = Link::new(end,  intr_sig.unwrap());
         let chain          = trust_chain_v3!(&root_key_store, Root::new(root), link1, link2);
 
         assert_ok!(chain);
